@@ -34,8 +34,11 @@ Ekstensi Chrome untuk otomatisasi pengambilan data dari situs PDKI (Pangkalan Da
 Pastikan folder ekstensi berisi file-file berikut:
 - `manifest.json` - Konfigurasi ekstensi
 - `popup.html` - Interface pengguna
-- `popup.js` - Logika popup
-- `content.js` - Script untuk scraping data
+- `popup.js` - Logika popup dan export data
+- `content.js` - Script untuk scraping data dari halaman PDKI
+- `icon16.png` - Icon ekstensi (16x16)
+- `icon48.png` - Icon ekstensi (48x48)
+- `icon128.png` - Icon ekstensi (128x128)
 - `README.md` - Dokumentasi (file ini)
 
 ## Cara Menggunakan
@@ -50,9 +53,11 @@ Pastikan folder ekstensi berisi file-file berikut:
 2. **Inisialisasi (Penting!)**
    - Lakukan pencarian manual **sekali** untuk inisialisasi:
      - Masukkan kode pencarian (contoh: `1234567890`)
-     - Klik tombol "Cari"
-     - Klik pada hasil pencarian untuk melihat detail
+     - Klik tombol "Cari" atau tekan Enter
+     - Klik pada hasil pencarian untuk melihat halaman detail
+     - Pastikan halaman detail sudah terbuka dan data sudah terlihat
    - Langkah ini diperlukan agar ekstensi dapat berfungsi dengan baik
+   - Tanpa inisialisasi, ekstensi mungkin tidak dapat menemukan elemen yang diperlukan
 
 ### Menggunakan Ekstensi
 
@@ -73,14 +78,21 @@ Pastikan folder ekstensi berisi file-file berikut:
 3. **Jalankan Proses**
    - Klik tombol **"Jalankan"**
    - Proses scraping akan dimulai secara otomatis
-   - Tunggu sampai muncul notifikasi "Selesai!"
+   - Status akan ditampilkan di popup: "Memproses X kode..."
+   - Tunggu sampai muncul alert "Selesai!" yang menampilkan:
+     - Jumlah data berhasil ditemukan
+     - Jumlah kode yang gagal
+     - Daftar kode yang gagal
    - **Jangan tutup atau refresh halaman PDKI** saat proses berjalan
+   - **Pastikan tab PDKI tetap aktif** selama proses berjalan
 
 4. **Export Data**
    - Setelah proses selesai, klik **"Export JSON"** atau **"Export CSV"**
-   - File akan terunduh otomatis:
-     - `pdki.json` untuk format JSON
-     - `pdki.csv` untuk format CSV/Excel
+   - File akan terunduh otomatis melalui Chrome Downloads API:
+     - `pdki.json` untuk format JSON (dengan indentasi 2 spasi)
+     - `pdki.csv` untuk format CSV (kompatibel dengan Excel)
+   - Jika belum ada data, akan muncul pesan error "Belum ada data untuk diekspor!"
+   - Data bisa di-export berkali-kali tanpa perlu scrape ulang (data tersimpan di Chrome Storage)
 
 ### Format Output
 
@@ -89,20 +101,37 @@ Pastikan folder ekstensi berisi file-file berikut:
 [
   {
     "kode": "1234567890",
-    "nomorPencatatan": "...",
-    "tanggalPencatatan": "...",
-    "status": "...",
-    "judul": "...",
-    "pemegang": [...],
-    "pencipta": [...],
-    ...
+    "nomorPencatatan": "000123456",
+    "tanggalPencatatan": "01 Januari 2024",
+    "status": "Aktif",
+    "judul": "Judul Ciptaan",
+    "uraianCiptaan": "Uraian lengkap ciptaan",
+    "jenisCiptaan": "Karya Tulis",
+    "pemegang": [
+      {
+        "nama": "Nama Pemegang",
+        "kewarganegaraan": "Indonesia"
+      }
+    ],
+    "pencipta": [
+      {
+        "nama": "Nama Pencipta",
+        "kewarganegaraan": "Indonesia"
+      }
+    ],
+    "konsultan": [
+      "Nama Konsultan 1",
+      "Nama Konsultan 2"
+    ]
   }
 ]
 ```
 
 **CSV Format:**
 - Semua data dalam format tabel
-- Array (pemegang, pencipta, konsultan) diubah menjadi string dengan separator `;`
+- Array pemegang dan pencipta diubah menjadi string dengan format: `"Nama (Kewarganegaraan)"` dengan separator `; `
+- Array konsultan diubah menjadi string dengan separator `; `
+- Semua field di-escape untuk kompatibilitas dengan Excel
 
 ## Cara Kerja
 
@@ -111,18 +140,21 @@ Pastikan folder ekstensi berisi file-file berikut:
 Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 
 1. **Content Script (`content.js`)**
-   - Berjalan di halaman PDKI
-   - Mengambil data dari DOM
-   - Menjalankan proses scraping otomatis
+   - Berjalan di halaman PDKI secara otomatis
+   - Mengambil data dari DOM menggunakan selector CSS
+   - Menjalankan proses scraping otomatis dengan retry mechanism
+   - Menyediakan fungsi `startAuto()` dan `goToPDKI()` untuk proses scraping
 
 2. **Popup (`popup.html` + `popup.js`)**
-   - Interface pengguna
-   - Mengirim perintah ke content script
-   - Menangani export data
+   - Interface pengguna (popup ekstensi)
+   - Mengirim perintah ke content script menggunakan `chrome.scripting.executeScript`
+   - Menangani export data (JSON dan CSV)
+   - Menampilkan status dan notifikasi
 
 3. **Storage**
-   - Menyimpan data hasil scraping
-   - Menggunakan Chrome Storage API
+   - Menyimpan data hasil scraping di `window.__PDKI_DATA` dan `window.__PDKI_NOT_FOUND`
+   - Juga menyimpan data di Chrome Storage Local untuk persistensi
+   - Data dapat diakses dari popup maupun content script
 
 ### Alur Kerja
 
@@ -143,38 +175,45 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
    ```
 
 3. **Retry Mechanism**
-   - Jika link tidak ditemukan, akan retry maksimal 3 kali
+   - Jika link tidak ditemukan atau data kosong, akan retry maksimal 3 kali
    - Setiap retry menunggu elemen muncul dengan timeout 8 detik
+   - Interval pengecekan elemen: 200ms
+   - Delay antar request: 500ms
 
 4. **Data Collection**
-   - Data yang diambil:
-     - Nomor Pencatatan
-     - Tanggal Pencatatan
-     - Status
-     - Judul
-     - Uraian Ciptaan
-     - Jenis Ciptaan
-     - Pemegang (array)
-     - Pencipta (array)
-     - Konsultan (array)
-     - Data tambahan dari grid
+   - Data yang diambil dari halaman detail:
+     - **Nomor Pencatatan** - Nomor pencatatan hak cipta
+     - **Tanggal Pencatatan** - Tanggal pencatatan
+     - **Status** - Status pencatatan (aktif, dll)
+     - **Judul** - Judul ciptaan
+     - **Uraian Ciptaan** - Deskripsi/uraian ciptaan
+     - **Jenis Ciptaan** - Jenis ciptaan
+     - **Pemegang** - Array objek dengan `nama` dan `kewarganegaraan`
+     - **Pencipta** - Array objek dengan `nama` dan `kewarganegaraan`
+     - **Konsultan** - Array string nama konsultan
+     - **Data tambahan** - Data lain dari grid (jika ada)
+   - Setiap data ditambahkan field `kode` (kode pencarian yang digunakan)
 
 5. **Error Handling**
    - Kode yang gagal dicatat dalam `window.__PDKI_NOT_FOUND`
-   - Notifikasi menampilkan daftar kode yang gagal
+   - Data yang berhasil dicatat dalam `window.__PDKI_DATA`
+   - Data juga disimpan di Chrome Storage (`chrome.storage.local`)
+   - Notifikasi alert menampilkan jumlah data berhasil dan daftar kode yang gagal
 
 ### Teknologi yang Digunakan
 
 - **Chrome Extensions API**
   - `chrome.tabs` - Mengakses tab browser
-  - `chrome.scripting` - Menjalankan script di halaman
-  - `chrome.storage` - Menyimpan data
-  - `chrome.downloads` - Mengunduh file
+  - `chrome.scripting` - Menjalankan script di halaman (executeScript)
+  - `chrome.storage.local` - Menyimpan data di browser lokal
+  - `chrome.downloads` - Mengunduh file hasil export
 
 - **JavaScript Features**
   - Async/Await untuk operasi asynchronous
-  - DOM Manipulation untuk scraping
-  - Event handling untuk interaksi
+  - DOM Manipulation untuk scraping data
+  - Event handling untuk interaksi user
+  - Promise-based untuk waitForSelector
+  - Blob API untuk membuat file download
 
 ## Catatan Penting
 
@@ -194,17 +233,21 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 
 ### 🔒 Keamanan & Privasi
 
-- Ekstensi hanya berjalan di domain `pdki-indonesia.dgip.go.id`
-- Data hanya disimpan di browser lokal (Chrome Storage)
+- Ekstensi hanya berjalan di domain `pdki-indonesia.dgip.go.id` (dikonfigurasi di `manifest.json` dengan `content_scripts.matches`)
+- Data hanya disimpan di browser lokal (Chrome Storage Local)
 - Tidak ada data yang dikirim ke server eksternal
 - Semua proses berjalan di sisi client (browser)
+- Tidak menggunakan server proxy atau API eksternal
+- Content script hanya aktif di halaman PDKI
+- Permissions yang digunakan hanya yang diperlukan: `tabs`, `scripting`, `storage`, `activeTab`, `downloads`
 
 ### ⚡ Performa
 
-- **Delay antar request**: 500ms - 2 detik
+- **Delay antar request**: 500ms (0.5 detik)
 - **Timeout per elemen**: 8 detik
+- **Interval pengecekan**: 200ms
 - **Retry maksimal**: 3 kali per kode
-- **Rekomendasi**: Jangan scrape lebih dari 50 kode sekaligus untuk menghindari timeout
+- **Rekomendasi**: Jangan scrape lebih dari 50 kode sekaligus untuk menghindari timeout atau masalah performa
 
 ### 🐛 Troubleshooting
 
@@ -214,14 +257,19 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 - Solusi: Refresh halaman PDKI dan lakukan inisialisasi ulang
 
 **Masalah: Data tidak muncul di export**
-- Solusi: Pastikan proses scraping sudah selesai (tunggu notifikasi)
-- Solusi: Cek console browser untuk error
+- Solusi: Pastikan proses scraping sudah selesai (tunggu alert "Selesai!")
+- Solusi: Cek console browser (F12) untuk melihat error atau data yang diambil
 - Solusi: Coba export lagi setelah proses selesai
+- Solusi: Pastikan ada data yang berhasil di-scrape (cek jumlah data di alert)
+- Solusi: Refresh halaman PDKI dan coba scrape lagi jika data kosong
 
 **Masalah: Ekstensi tidak berfungsi**
 - Solusi: Pastikan ekstensi sudah diaktifkan di `chrome://extensions/`
 - Solusi: Reload ekstensi (klik icon reload di chrome://extensions/)
 - Solusi: Pastikan halaman PDKI sudah terbuka dan sudah diinisialisasi
+- Solusi: Pastikan tab PDKI adalah tab aktif saat mengklik tombol "Jalankan"
+- Solusi: Cek console browser untuk melihat error JavaScript
+- Solusi: Pastikan URL halaman PDKI adalah `https://pdki-indonesia.dgip.go.id/search`
 
 ### 📝 Catatan Tambahan
 
@@ -229,14 +277,27 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 - Gunakan dengan bijak dan sesuai dengan ketentuan penggunaan situs PDKI
 - Data yang diambil adalah data publik yang tersedia di situs PDKI
 - Ekstensi ini tidak mengubah atau memanipulasi data, hanya mengambil data yang sudah tersedia
+- Export data tersedia dalam 2 format: JSON (untuk programmatic) dan CSV (untuk Excel/Google Sheets)
+- Data yang gagal di-scrape akan ditampilkan di alert dan bisa dicoba lagi secara manual
 
-### 📧 Kontak
+### 💡 Tips & Trik
 
-Dibuat oleh: **ariefhyda**
+- **Melihat Data di Console**: Buka Developer Tools (F12) untuk melihat data yang diambil di console
+- **Debugging**: Data tersimpan di `window.__PDKI_DATA` dan `window.__PDKI_NOT_FOUND` di halaman PDKI
+- **Batch Processing**: Untuk kode banyak, disarankan membagi menjadi batch kecil (misalnya 20-30 kode per batch)
+- **Export Berkali-kali**: Data tersimpan di Chrome Storage, jadi bisa export berkali-kali tanpa perlu scrape ulang
+- **Clear Data**: Untuk menghapus data, bisa clear Chrome Storage atau refresh halaman PDKI
+
+### 📧 Kontak & Informasi
+
+**Dibuat oleh:** ariefhyda  
+**GitHub:** [https://github.com/ariefhyda](https://github.com/ariefhyda)  
+**Repository:** [https://github.com/ariefhyda/PDKI-Auto-Fetch](https://github.com/ariefhyda/PDKI-Auto-Fetch)
 
 ---
 
-**Versi**: 1.0  
-**Manifest Version**: 3  
-**Browser Support**: Google Chrome (terbaru)
+**Versi:** 1.0  
+**Manifest Version:** 3  
+**Browser Support:** Google Chrome (terbaru)  
+**License:** Lihat file LICENSE di repository (jika ada)
 

@@ -2,6 +2,12 @@
   "name": "PDKI Auto Fetch",
   "version": "1.0",
   "manifest_version": 3,
+  "description": "Ekstensi Chrome untuk otomatisasi pengambilan data dari situs PDKI (Pangkalan Data Kekayaan Intelektual Indonesia)",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": [
     "tabs",
     "scripting",
@@ -10,7 +16,12 @@
     "downloads"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
   },
   "content_scripts": [
     {
