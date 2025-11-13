@@ -1,0 +1,21 @@
+{
+  "name": "PDKI Auto Fetch",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "activeTab",
+    "downloads"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://pdki-indonesia.dgip.go.id/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

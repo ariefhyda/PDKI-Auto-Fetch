@@ -8,8 +8,8 @@ Ekstensi Chrome untuk otomatisasi pengambilan data dari situs PDKI (Pangkalan Da
 
 1. **Download atau Clone Repository**
    ```bash
-   git clone <repository-url>
-   cd scrap-dgip
+   git clone https://github.com/ariefhyda/PDKI-Auto-Fetch.git
+   cd PDKI-Auto-Fetch
    ```
 
 2. **Buka Chrome Extensions**
@@ -232,7 +232,7 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 
 ### 📧 Kontak
 
-Dibuat oleh: **Arif Hidayah**
+Dibuat oleh: **ariefhyda**
 
 ---
 
