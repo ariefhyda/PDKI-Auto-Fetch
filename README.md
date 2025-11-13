@@ -22,7 +22,7 @@ Ekstensi Chrome untuk otomatisasi pengambilan data dari situs PDKI (Pangkalan Da
 
 4. **Load Extension**
    - Klik tombol "Load unpacked"
-   - Pilih folder `scrap-dgip` yang berisi file-file ekstensi
+   - Pilih folder `PDKI-Auto-Fetch` yang berisi file-file ekstensi
    - Ekstensi akan muncul di daftar extensions
 
 5. **Verifikasi Instalasi**
