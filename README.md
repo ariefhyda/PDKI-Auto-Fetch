@@ -203,7 +203,6 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 ### Teknologi yang Digunakan
 
 - **Chrome Extensions API**
-  - `chrome.tabs` - Mengakses tab browser
   - `chrome.scripting` - Menjalankan script di halaman (executeScript)
   - `chrome.storage.local` - Menyimpan data di browser lokal
   - `chrome.downloads` - Mengunduh file hasil export
@@ -239,7 +238,7 @@ Ekstensi ini menggunakan **Manifest V3** dengan komponen berikut:
 - Semua proses berjalan di sisi client (browser)
 - Tidak menggunakan server proxy atau API eksternal
 - Content script hanya aktif di halaman PDKI
-- Permissions yang digunakan hanya yang diperlukan: `tabs`, `scripting`, `storage`, `activeTab`, `downloads`
+- Permissions yang digunakan hanya yang diperlukan: `scripting`, `storage`, `activeTab`, `downloads`
 
 ### ⚡ Performa
 
